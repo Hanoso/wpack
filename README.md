@@ -3,7 +3,7 @@ hanoso
 
 更新流程：
 1. git add .   点击changes的加号
-2. git commit -m "提交的说明"   右上角选择commit all
+2. git commit -m "提交的说明"   右上角选择commit all, 输入提交说明
 3. git push  右上角push
 
 

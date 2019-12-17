@@ -2,9 +2,9 @@ README.md
 hanoso
 
 更新流程：
-1. git add .
-2. git commit -m "提交的说明"
-3. git push
+1. git add .   点击changes的加号
+2. git commit -m "提交的说明"   右上角选择commit all
+3. git push  右上角push
 
 
 添加所有文件到缓冲区（从目前掌握的水平看，和后面加“.”的区别在于，加all可以添加被手动删除的文件，而加“.”不行）：

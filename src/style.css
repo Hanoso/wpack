@@ -1,0 +1,11 @@
+@import "./a.css";
+
+body{
+    background-color: yellow;
+    background-image: url("2.png");
+}
+div{
+    background-image: url('./1.jpg');
+    width: 500px;
+    height: 700px;
+}

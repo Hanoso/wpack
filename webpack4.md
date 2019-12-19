@@ -607,4 +607,76 @@ plugins:[
 ]
 ```
 ps：常用插件应该不止这3个。。。
-#### 16. webpack跨域问题
+#### 16. webpack跨域问题 [未验证成功]
+**跨域**：请求端和响应端域名/端口不一致，即为跨域。
+
+1） 方法一：配置代理
+首先在项目根目录创建`server.js`服务端文件：
+```js
+// express
+let express = require("express");   // 引入express
+let app = express(); // 创建app服务
+// /api/user, /test/user，请求路径中的mock被替换为空
+app.get('/user',(req,res)=>{ // 请求req响应res，get请求路径/user
+    res.json({name:'Hanoso666'}) // 返回的响应json
+})
+app.listen(3000); // 监听3000端口
+```
+然后在入口文件`index.js`中配置前端请求js：
+```js
+// express
+// 默认访问的路径http://localhost:8081 webpack-dev-serer服务路径 => 3000端口 --》跨域
+let xhr = new XMLHttpRequest(); // 创建Ajax对象
+xhr.open('GET','/api/user',true); // 建立GET请求 /mock/api/user, /mock/test/user
+xhr.onload = function(){
+    console.log(xhr.response); // 设置回调
+}
+xhr.send(); // 发送Ajax请求
+```
+在`webpack.config.js`中配置`devServer`代理：
+```js
+devServer{
+            // 配置代理
+        proxy:{
+            '/api': {
+                // webpack默认首页打开未8081端口，配置target转至3000端口，与
+                // server.js端口保持一致，从而解决跨域问题
+                target: 'http://localhost:3000',
+                pathRewrite: {'^/api':''}, // 将请求路径中开头/api替换为空
+                // 请求端路径/api/user，实际情况不确定，可以有很多写法，如/test/user, /new/user等等，为避免重复设置，可将前端请求路径统一以/mock开头，如/mock/api/user, /mock/test/user, /mock/new/user, 然后将/mock替换为空，server.js中去掉/mock
+            }
+        }
+}
+```
+结果：启动dev和server.js后，访问http://localhost:8081即可经代理实现server.js响应
+2）方法二：不需要写server.js，只模拟前端数据
+在`devServer`中设置：
+```js
+devServer{
+        before(app){ // 提供方法，钩子
+            app.get('/user',(req,res)=>{ // 路径与index.js请求路径一致即可
+                res.json({name:'Hanoso2020'})
+            })
+        }
+}
+```
+3）方法三：有服务端，不用代理来处理，并由webpack来启动==> 中间件 【验证失败】
+在`server.js`中配置：
+```js
+let express = require("express");
+let app = express();
+let webpack = require('webpack');
+// 中间件
+let middle = require('webpack-dev-middleware');
+
+let config = require('./webpack.config.js');
+let compailer = webpack(config); // 启动server.js时启动webpack，由服务器端启动前端
+
+app.use(middle(compailer));
+
+app.get('/user',(req,res)=>{
+    res.json({name:'Hanoso-middle'});
+});
+
+app.listen(3000);
+```

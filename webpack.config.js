@@ -48,7 +48,20 @@ module.exports = {
         progress: true, // 打包进度条开启
         // compress: true, // 启动压缩
         // open: true, // 自动打开浏览器
-
+        // 配置代理
+        // 1）方法一：与server.js配合
+        // proxy:{
+        //     '/api': {
+        //         target: 'http://localhost:3000',
+        //         pathRewrite: {'^/api':''}
+        //     }
+        // },
+        // 2) 方法二：只模拟前端数据，不需要server.js
+        // before(app){ // 提供方法，钩子
+        //     app.get('/user',(req,res)=>{
+        //         res.json({name:'Hanoso2020'})
+        //     })
+        // }
     },
     optimization: { // 优化项
         minimizer: [
@@ -90,7 +103,7 @@ module.exports = {
                 options:{
                     esModule: false,
                     outputPath: '/img/',
-                    publicPath: 'htpp://localhost'
+                    // publicPath: 'htpp://localhost' // 为图片路径增加域名
                 }
             } },
             { test: /\.html$/, use: {

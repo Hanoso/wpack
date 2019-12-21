@@ -617,6 +617,7 @@ ps：常用插件应该不止这3个。。。
 #### 16. webpack跨域问题 
 **跨域**：请求端和响应端域名/端口不一致，即为跨域。
 默认访问的路径http://localhost:8081 webpack-dev-serer服务路径 => 服务器端口3000端口 --》跨域
+
 **1） 方法一：配置代理**
 - 首先在项目根目录创建`server.js`服务端文件；
 - 配置`devServer`代理；
@@ -655,6 +656,7 @@ xhr.onload = function(){
 xhr.send(); // 发送Ajax请求
 ```
 结果：启动dev和server.js后，访问http://localhost:8081即可经代理实现server.js响应
+
 **2）方法二：不需要写server.js，只模拟前端数据**
 在`devServer`中设置：
 ```js

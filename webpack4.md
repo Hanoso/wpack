@@ -607,12 +607,15 @@ plugins:[
 ]
 ```
 ps：常用插件应该不止这3个。。。
-#### 16. webpack跨域问题 [未验证成功]
+#### 16. webpack跨域问题 
 **跨域**：请求端和响应端域名/端口不一致，即为跨域。
-
-1） 方法一：配置代理
-首先在项目根目录创建`server.js`服务端文件：
+默认访问的路径http://localhost:8081 webpack-dev-serer服务路径 => 服务器端口3000端口 --》跨域
+**1） 方法一：配置代理**
+- 首先在项目根目录创建`server.js`服务端文件；
+- 配置`devServer`代理；
+- 在`index.js`中配置Ajax请求响应。
 ```js
+// server.js
 // express
 let express = require("express");   // 引入express
 let app = express(); // 创建app服务
@@ -621,20 +624,8 @@ app.get('/user',(req,res)=>{ // 请求req响应res，get请求路径/user
     res.json({name:'Hanoso666'}) // 返回的响应json
 })
 app.listen(3000); // 监听3000端口
-```
-然后在入口文件`index.js`中配置前端请求js：
-```js
-// express
-// 默认访问的路径http://localhost:8081 webpack-dev-serer服务路径 => 3000端口 --》跨域
-let xhr = new XMLHttpRequest(); // 创建Ajax对象
-xhr.open('GET','/api/user',true); // 建立GET请求 /mock/api/user, /mock/test/user
-xhr.onload = function(){
-    console.log(xhr.response); // 设置回调
-}
-xhr.send(); // 发送Ajax请求
-```
-在`webpack.config.js`中配置`devServer`代理：
-```js
+
+// webpack.config.js
 devServer{
             // 配置代理
         proxy:{
@@ -647,11 +638,20 @@ devServer{
             }
         }
 }
+
+// index.js
+let xhr = new XMLHttpRequest(); // 创建Ajax对象
+xhr.open('GET','/api/user',true); // 建立GET请求 /mock/api/user, /mock/test/user
+xhr.onload = function(){
+    console.log(xhr.response); // 设置回调
+}
+xhr.send(); // 发送Ajax请求
 ```
 结果：启动dev和server.js后，访问http://localhost:8081即可经代理实现server.js响应
-2）方法二：不需要写server.js，只模拟前端数据
+**2）方法二：不需要写server.js，只模拟前端数据**
 在`devServer`中设置：
 ```js
+// webpack.cofig.js
 devServer{
         before(app){ // 提供方法，钩子
             app.get('/user',(req,res)=>{ // 路径与index.js请求路径一致即可
@@ -659,9 +659,17 @@ devServer{
             })
         }
 }
+// index.js
+// express
+let xhr = new XMLHttpRequest(); // 创建Ajax对象
+xhr.open('GET','/api/user',true); // 建立GET请求 /mock/api/user, /mock/test/user
+xhr.onload = function(){
+    console.log(xhr.response); // 设置回调
+}
+xhr.send(); // 发送Ajax请求
 ```
-3）方法三：有服务端，不用代理来处理，并由webpack来启动==> 中间件 【验证失败】
-在`server.js`中配置：
+**3）方法三：有服务端，不用代理来处理，并由webpack来启动==> 中间件**
+仅在`server.js`中配置：
 ```js
 let express = require("express");
 let app = express();
@@ -678,5 +686,86 @@ app.get('/user',(req,res)=>{
     res.json({name:'Hanoso-middle'});
 });
 
-app.listen(3000);
+app.listen(3000);  // 端口可按需配置
 ```
+通过访问localhost:300/user打开网页，即可实现数据打印`{"name":"Hanoso-middle"}`，即设置成功。
+#### 17. resolve解析第三方包
+示例代码：
+```js
+export.modules{
+    resolve:{ // 解析第三方包
+        modules:[path.resolve('node_modules')],
+        extensions:['.js','.css','.json','.vue'], // 限定扩展名，按序依次解析
+        mainFields:['style','main','index'], // 入口文件的名字 index.js
+        alias:{ // 设置别名，在index.js引入时可直接采用 import 'bootstrap'
+            bootstrap:'bootstrap/dist/css/bootstrap.css'
+        }
+    },
+}
+```
+#### 18. 配置环境变量
+示例代码：
+```js
+// webpack.config.js
+    plugins: [
+        new webpack.DefinePlugin({
+            DEV:JSON.stringify('dev'), // 字符串判断
+            FLAG:'true',  // 此处也仅为演示，布尔判断
+            EXPRESSION:'1+1',
+            // EXPRESSION:JSON.stringify('1+1'),  // 不加JSON.stringify，会打印出1+1.加上则打印2，此处仅作演示
+        }),
+    ]
+// index.js
+// 环境变量配置
+let url="";
+if(DEV == 'dev'){
+    url = 'http://localhost:8081'
+}else{
+    url = 'http://www.baidu.com'
+}
+console.log(DEV);
+console.log(EXPRESSION);
+console.log(url);
+```
+#### 19. 区分不同环境变量（环境继承）
+需安装插件：
+```js
+cnpm i --save-dev webpack-merge
+```
+1> 创建基础配置文件`webpack.base.js`；
+2> 创建开发环境配置文件`webpack.dev.js`；
+3> 创建生产环境配置文件`webpack.pro.js`；
+通过`webpack-merge`可以实现不同环境配置文件与基础配置文件的继承/覆盖。
+示例代码如下：
+```js
+// webpack.base.js 配置基础信息
+
+// webpack.dev.js 配置开发环境信息
+let {smart} = require('webpack-merge');
+let base = require('./webpack.base.js');
+
+module.exports = smart(base,{
+    mode: 'development'
+})
+
+// webpack.pro.js 配置生产环境信息
+let {smart} = require('webpack-merge');
+let base = require('./webpack.base.js');
+
+module.exports = smart(base,{
+    mode: 'production'
+})
+```
+如开启不同环境，可执行如下代码：
+`npm run build -- --config webpack.pro.js`
+亦可设置`package.json`文件：
+```json
+"scripts": {
+    "build": "webpack --config webpack.config.js",
+    "b-dev": "webpack --config webpack.dev.js",
+    "b-pro": "webpack --config webpack.pro.js",
+    "wds": "webpack-dev-server",
+    "server": "node server.js"
+  },
+```
+通过以下命令启动相应环境：`npm run b-dev` 或 `npm run b-pro`。

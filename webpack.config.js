@@ -6,6 +6,7 @@ const OptimizeCSSAssetsPlugin = require("optimize-css-assets-webpack-plugin");
 const {CleanWebpackPlugin} = require("clean-webpack-plugin"); // 必须加{}
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const webpack = require("webpack");
+const Happypack = require("happypack");
 
 module.exports = {
     mode: "development", // 两种模式：production和development，默认production
@@ -13,7 +14,7 @@ module.exports = {
     // entry: './src/index.js',
     // 多入口
     entry: {
-        home: './src/index.js',
+        index: './src/index.js',
         other: './src/other.js'
     },
     // 对应多出口
@@ -25,7 +26,7 @@ module.exports = {
         filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
         // publicPath: 'http://localhost',
-        publicPath: '/',
+        // publicPath: '/',
     },
     // 1）源码映射，单独生成一个sourcemap文件，出错时会直接提示报错行
     // devtool: 'source-map', // 大而全的设置
@@ -51,6 +52,7 @@ module.exports = {
         }
     },
     devServer: {
+        hot:true,
         contentBase:"./dist", // 本地服务器路径
         inline:true, // 实时刷新开启
         // port: 3000, // 端口设置，本地默认8081
@@ -78,9 +80,26 @@ module.exports = {
             new TerserJSPlugin({}),
             // 压缩抽离后的css文件，此优化仅在production模式有效，development模式下不压缩
             new OptimizeCSSAssetsPlugin({})
-        ]
+        ],
+        // splitChunks:{ // 分割代码块
+        //     cacheGroups:{ // 缓存组
+        //         common:{ // 抽离 公共的模块
+        //             chunks:'initial',
+        //             minSize:0, // 最小大小
+        //             minChunks:2, // 最小出现次数
+        //         },
+        //         vendor:{ // 抽离 第三方模块
+        //             priority:1, // 权重高，优先抽离第三方模块，再抽离其他
+        //             test:/node_modules/, // 要抽离出的文件
+        //             chunks: 'initial',
+        //             minSize:0,
+        //             minChunks:2
+        //         }
+        //     }
+        // }
     },
     module: {
+        noParse:/jquery/, // 排出不需要解析的包（没有其他依赖项的包）；
         rules: [
             // 从上到下、从右至左，顺序执行
             // 方法一：简单设置
@@ -96,11 +115,13 @@ module.exports = {
             //     ]
             // },
             // 方法三： 使用抽离
-            { test: /\.css$/, use: [
-                    MiniCssExtractPlugin.loader,
-                    'css-loader', // 解析@import路径
-                ]
-            },
+            // { test: /\.css$/, use: [
+            //         MiniCssExtractPlugin.loader,
+            //         'css-loader', // 解析@import路径
+            //     ]
+            // },
+            // 优化：多线程打包css文件
+            { test: /\.css$/, use: 'Happypack/loader?id=css' },
             { test: /\.less$/, use: [
                     MiniCssExtractPlugin.loader,
                     'css-loader', // 解析@import路径
@@ -124,21 +145,46 @@ module.exports = {
             } },
             // { test: /\.html$/, use: 'html-withimg-loader' },
             // js语法转化
-            {test: /\.js$/, use: {
-                loader: 'babel-loader',
-                options: {
-                  presets: ['@babel/preset-env'],
-                  plugins: [
-                      // '@babel/plugin-proposal-object-rest-spread',
-                      ["@babel/plugin-proposal-decorators", { "legacy": true }],
-                      ["@babel/plugin-proposal-class-properties", { "loose" : true }]
-                  ]
-                }
-              }
+            {test: /\.js$/, 
+                // exclude和include配置一个即可
+                exclude:/node_modules/,  // 排除文件夹，不去该路径下查找
+                // include:path.resolve('src'), // 指定文件夹，去该路径下查找
+            // use: {
+            //     loader: 'babel-loader',
+            //     options: {
+            //       presets: ['@babel/preset-env'],
+            //       plugins: [
+            //           // '@babel/plugin-proposal-object-rest-spread',
+            //           ["@babel/plugin-proposal-decorators", { "legacy": true }],
+            //           ["@babel/plugin-proposal-class-properties", { "loose" : true }]
+            //         ]
+            //     }
+            // },
+            // 使用happypack对js进行打包
+            use: 'Happypack/loader?id=js'
             }
         ]
     },
     plugins: [
+        new webpack.NamedModulesPlugin(), // 打印更新的模块路径
+        new webpack.HotModuleReplacementPlugin(), // 热更新插件
+        new Happypack({ // 多线程方式打包css文件
+            id: 'css',
+            use:['style-loader','css-loader']
+        }),
+        new Happypack({ // 多线程方式打包js文件
+            id: 'js',
+            use:[{
+                loader: 'babel-loader',
+                options:{
+                    presets: [
+                        '@babel/preset-env',
+                        '@babel/preset-react'
+                    ],
+                }
+            }]
+        }),
+        new webpack.IgnorePlugin(/\.\/locale/, /moment/), // 忽略moment插件中的locale模块
         new webpack.DefinePlugin({
             DEV:JSON.stringify('dev'), // 名称自定义
             // FLAG:'true',
@@ -147,7 +193,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: "./index.html",
             filename: "index.html",
-            chunks: ['home'], // 多页面打包设置，对应入口js
+            chunks: ['index'], // 多页面打包设置，对应入口js
             minify: {
                 removeAttributeQuotes: true, // 去除引号
                 removeComments: true, // 去除注意
@@ -161,7 +207,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: "./other.html",
             filename: "other.html",
-            chunks: ['other', 'home'], // 多页面打包设置，对应入口js, 先引入home再other
+            chunks: ['other', 'index'], // 多页面打包设置，对应入口js, 先引入home再other
             minify: {
                 removeAttributeQuotes: true, // 去除引号
                 removeComments: true, // 去除注意

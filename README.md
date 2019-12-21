@@ -778,3 +778,176 @@ module.exports = smart(base,{
   },
 ```
 通过以下命令启动相应环境：`npm run b-dev` 或 `npm run b-pro`。
+
+#### 20. 优化项
+1) noParse
+功能：不去解析包（如jQuery）中的依赖库。
+需配置config。
+2) exclude或include
+功能：排除或指定查找路径/文件夹，配置其一即可。
+需配置config。
+3) moment时间插件及IgnorePlugin
+功能：格式化时间，时间计算等，可以设置语言。
+安装：`cnpm i --save-dev moment`
+```js
+// 时间插件moment
+import moment from 'moment';
+import 'moment/locale/zh-cn'; // 仅引入中文包
+moment.locale('zh-cn'); // 设置语言
+let r = moment().endOf('day').fromNow();
+console.log(r);
+```
+需配置config。
+4) happypack多线程打包模块
+安装：`cnpm i --save-dev happypack`，`cnpm i --save-dev @babel/preset-react`
+多线程打包输出如下：
+```js
+Happy[css]: Version: 5.0.1. Threads: 3
+i ｢wds｣: Project is running at http://localhost:8081/
+i ｢wds｣: webpack output is served from /
+i ｢wds｣: Content not from webpack is served from ./dist
+Happy[css]: All set; signaling webpack to proceed.
+Happy[js]: Version: 5.0.1. Threads: 3
+Happy[js]: All set; signaling webpack to proceed.
+i ｢wdm｣: Hash: 7b2804c8263a364b7bf0
+Version: webpack 4.41.4
+Time: 2572ms
+Built at: 2019-12-21 10:31:04 PM
+```
+需配置config。
+5) webpack自带优化（tree-shaking + scope hosting）
+tree-shaking：采用import引入 生产环境下，把没用的到的代码 自动删除掉；
+scope hosting：作用域提升，webpack打包时 自动简化 省略中间代码；
+```js
+// index.js中
+// webpack自带优化功能 测试
+import calc from './test'
+console.log(calc.sum(1,2));
+// import 在生产环境下 可以自动去掉用不到的代码
+// tree-shaking 把没用的到的代码 自动删除掉
+
+// let calc = require('./test')
+// console.log(calc.default.sum(1,2)); // 采用require方式，sum在default中
+// ES6 模块会把结果放到default中
+// require 引入不能像import一样在生产环境下去除多余代码，故推荐使用import引入
+
+// scope hosting 作用域提升
+let a = 1;
+let b = 2;
+let c = 3;
+let d = a + b + c;
+console.log(d, '--------------------') // webpack打包时 自动简化 省略中间代码，返回最终结果
+```
+6) ~~抽离公共代码~~【导致其他问题】
+位置：`optimization { splitChunks:{...} }`
+问题：添加`splitChunks`配置后，会影响js/css等文件的打包，浏览器无效果。
+```js
+// index.js中示例代码：
+// 抽离公共代码 测试
+// console.log('抽离公共代码 测试')
+// import './a.js'
+// import './b.js'
+// console.log('./index.js')
+// import jquery from 'jquery';
+// console.log(jquery)
+```
+需配置config。
+7) 懒加载
+介绍：在js代码回调函数中import其他js文件，并获取其中的数据。
+示例代码：
+```js
+// source.js中
+export default 'lazy-load'
+
+// index.js中
+// 懒加载 测试
+let button = document.createElement('button');
+button.innerHTML = 'Hello';
+button.addEventListener('click',function(){
+    import('./source.js').then(data=>{  // 回调函数中引入
+        console.log(data.default);
+    });
+});
+document.body.appendChild(button);
+```
+8) 热更新
+功能：局部更新修改的内容。
+```js
+// index.js中
+// 热更新 测试
+import str from './source';
+console.log(str);
+if(module.hot){ // 如果devServer中hot为true，则启动热更新
+    module.hot.accept('./source',()=>{
+        let str = require('./source')
+        console.log(str)
+    })
+}
+```
+需配置config。
+
+**以下为上述优化项在`webpack.config.js`中的配置：**
+```js
+const Happypack = require("happypack"); // 4）
+
+module.exports = {
+    devServer: {
+        hot:true, // 8)
+    },
+    optimization: { // 优化项
+        minimizer: [ ],
+        // splitChunks:{ // 分割代码块 6)
+        //     cacheGroups:{ // 缓存组
+        //         common:{ // 抽离 公共的模块
+        //             chunks:'initial',
+        //             minSize:0, // 最小大小
+        //             minChunks:2, // 最小出现次数
+        //         },
+        //         vendor:{ // 抽离 第三方模块
+        //             priority:1, // 权重高，优先抽离第三方模块，再抽离其他
+        //             test:/node_modules/, // 要抽离出的文件
+        //             chunks: 'initial',
+        //             minSize:0,
+        //             minChunks:2
+        //         }
+        //     }
+        // }
+    },
+    module: {
+        noParse:/jquery/, // 排出不需要解析的包（没有其他依赖项的包）； 1)
+        rules: [
+            // 优化：多线程打包css文件
+            { test: /\.css$/, use: 'Happypack/loader?id=css' },  // 4)
+            // ...
+            {test: /\.js$/, 
+            // exclude和include配置一个即可 2)
+            exclude:/node_modules/,  // 排除文件夹，不去该路径下查找
+            // include:path.resolve('src'), // 指定文件夹，去该路径下查找
+            // 使用happypack对js进行打包
+            use: 'Happypack/loader?id=js'  // 4)
+            }
+        ],
+    },
+    plugins: [
+        new webpack.NamedModulesPlugin(), // 打印更新的模块路径 8)
+        new webpack.HotModuleReplacementPlugin(), // 热更新插件 8)
+        new Happypack({ // 多线程方式打包css文件 4)
+            id: 'css',
+            use:['style-loader','css-loader']
+        }),
+        new Happypack({ // 多线程方式打包js文件 4)
+            id: 'js',
+            use:[{
+                loader: 'babel-loader',
+                options:{
+                    presets: [
+                        '@babel/preset-env',
+                        '@babel/preset-react'
+                    ],
+                }
+            }]
+        }),
+        new webpack.IgnorePlugin(/\.\/locale/, /moment/), // 忽略moment插件中的locale模块 3)
+    ]
+}
+```

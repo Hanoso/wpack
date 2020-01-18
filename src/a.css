@@ -9,4 +9,5 @@ body{
 }
 div{
     border: 1px solid;
+    background-color: gray;
 }
